@@ -40,7 +40,30 @@ printnum(void (*putch)(int, void*), void *putdat,
 	// space on the right side if neccesary.
 	// you can add helper function if needed.
 	// your code here:
+	if(padc == '-'){
+		// can't use recursive again
+		padc = ' ';
+		unsigned long long reverse_num = 0;
+		int len = 0;
+		for(; num > 0; num = num/base){
+			reverse_num *= base;
+			reverse_num += num % base;
+			len ++;
+		}
 
+		width -= len;
+		// reverse output reverse number
+		for(; len > 0; len--){
+			putch("0123456789abcdef"[reverse_num % base], putdat);
+			reverse_num /= base;
+		}
+		
+		while(--width >= 0){
+			putch(padc, putdat);
+		}
+		return;
+
+	}
 
 	// first recursively print all preceding (more significant) digits
 	if (num >= base) {
@@ -92,10 +115,12 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	register int ch, err;
 	unsigned long long num;
 	int base, lflag, width, precision, altflag;
+	// base, long flag
+	// %m.n means print with width m and precision n 
 	char padc;
 
 	while (1) {
-		while ((ch = *(unsigned char *) fmt++) != '%') {
+		while ((ch = *(unsigned char *) fmt++) != '%') {	// print normal character
 			if (ch == '\0')
 				return;
 			putch(ch, putdat);
@@ -115,6 +140,10 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			padc = '-';
 			goto reswitch;
 			
+		case '+':
+			padc = '+';
+			goto reswitch;
+
 		// flag to pad with 0's instead of spaces
 		case '0':
 			padc = '0';
@@ -144,7 +173,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		case '.':
 			if (width < 0)
-				width = 0;
+				width = 0;	// initialize width if occur with '.'
 			goto reswitch;
 
 		case '#':
@@ -152,7 +181,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			goto reswitch;
 
 		process_precision:
-			if (width < 0)
+			if (width < 0)	// if the format is %m, then the user do not indicate precision, give the number to width 
 				width = precision, precision = -1;
 			goto reswitch;
 
@@ -181,7 +210,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		case 's':
 			if ((p = va_arg(ap, char *)) == NULL)
 				p = "(null)";
-			if (width > 0 && padc != '-')
+			if (width > 0 && padc != '-')	// %ns means if the length of string is less than n, use space to supplement
 				for (width -= strnlen(p, precision); width > 0; width--)
 					putch(padc, putdat);
 			for (; (ch = *p++) != '\0' && (precision < 0 || --precision >= 0); width--)
@@ -189,7 +218,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 					putch('?', putdat);
 				else
 					putch(ch, putdat);
-			for (; width > 0; width--)
+			for (; width > 0; width--)	// align with space if length do not reach width
 				putch(' ', putdat);
 			break;
 
@@ -199,6 +228,9 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			if ((long long) num < 0) {
 				putch('-', putdat);
 				num = -(long long) num;
+			}else{
+				if(padc == '+')
+					putch('+', putdat);
 			}
 			base = 10;
 			goto number;
@@ -213,9 +245,10 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		case 'o':
 			// Replace this with your code.
 			// display a number in octal form and the form should begin with '0'
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
+			putch('0', putdat);
+			num = getuint(&ap, lflag);
+			base = 8;
+			goto number;
 			break;
 
 		// pointer
@@ -256,6 +289,21 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
             const char *overflow_error = "\nwarning! The value %n argument pointed to has been overflowed!\n";
 
             // Your code here
+			char * n_arg  = va_arg(ap, char*);
+			if(n_arg == NULL){
+				cprintf("%s", null_error);
+				break;
+			}
+			int *output_cnt = putdat;
+			if(*output_cnt > 127){
+				cprintf("%s", overflow_error);
+				*n_arg = *output_cnt;
+				break;
+			}
+			else{
+				*n_arg = *output_cnt;
+			}
+
 
             break;
         }
