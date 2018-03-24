@@ -10,6 +10,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -26,6 +27,9 @@ static struct Command commands[] = {
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Display information about the current stack backtrack", mon_backtrace },
 	{ "time", "Display the run time of a special command", mon_time },
+	{ "shmap", "Display the physical page mappings and corresponding permission bits that apply to the pages between input addresses.", mon_shmap },
+	{ "chmap", "Explicitly set, clear, or change the permissions of any mapping in the current address space.", mon_chmap },
+	{ "memdump", "Dump the contents of a range of memory given either a virtual or physical address range.", mon_memdump },
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -134,6 +138,182 @@ mon_time(int argc, char**argv, struct Trapframe *tf){
 	return 0;
 }
 
+static uint32_t
+hex2int(char * s){
+	int index = 0;
+	uint32_t result = 0;
+	if(s[0] != '0' || s[1] != 'x'){
+		return 0;
+	}
+	index = 2;
+	while(s[index] != '\0'){
+		result *= 16;
+		if(s[index] >= '0' && s[index] <= '9'){
+			result += s[index] - '0';
+		}
+		else if(s[index] >= 'a' && s[index] <= 'f'){
+			result += (s[index] - 'a' + 10);
+		}
+		else if(s[index] >= 'A' && s[index] <= 'F'){
+			result += (s[index] - 'A' + 10);
+		}
+		else{ 
+			return 0;
+		}
+		index ++;
+	}
+	return result;
+}
+
+int
+mon_shmap(int argc, char**argv, struct Trapframe *tf){
+	if(argc != 3){
+		cprintf("Usage: shmap <start> <end>\n");
+		return 0;
+	}
+	uint32_t start = hex2int(argv[1]);
+	uint32_t end = hex2int(argv[2]);
+
+	pte_t * pte;
+	uintptr_t index = ROUNDUP(start, PGSIZE);
+	physaddr_t mapped_addr;
+	while(index <= end){
+		pte = pgdir_walk(kern_pgdir, (void*) index, 0);
+		if(pte == NULL || !(*pte & PTE_P)){
+			cprintf("%08x   =>   not mapped\n", index);
+		}else{
+			if(*pte & PTE_PS){	// large page
+				index -= PGSIZE;
+				index += PTSIZE;
+			}
+			mapped_addr = PTE_ADDR(*pte);
+			cprintf("%08x  =>  %08x  ", index, mapped_addr);
+			// print permission bits
+			if (*pte & PTE_W) {
+                cprintf(" W");
+            }
+			if (*pte & PTE_U) {
+                cprintf(" U");
+            }
+			if (*pte & PTE_PWT) {
+                cprintf(" PWT");
+            }
+			if (*pte & PTE_PCD) {
+                cprintf(" PCD");
+            }
+			if (*pte & PTE_A) {
+                cprintf(" A");
+            }			
+			if (*pte & PTE_D) {
+                cprintf(" D");
+            }                        
+			if (*pte & PTE_PS) {
+                cprintf(" PS");
+            }						
+			if (*pte & PTE_G) {
+                cprintf(" G");
+            }
+			cprintf("\n");
+		}
+
+		index += PGSIZE;
+	}
+	return 0;
+}
+
+int 
+mon_chmap(int argc, char**argv, struct Trapframe *tf){
+	if(argc != 3){
+		cprintf("Usage: chmap <+/-permission> <addr>\n");
+		return 0;
+	}
+	// mode
+	int mode;
+	if(argv[1][0] == '+'){
+		mode = 1;
+	}else if(argv[1][0] == '-'){
+		mode = 0;
+	}else{
+		cprintf("Usage: chmap <+/- permission> <addr>\n");
+		return 0;
+	}
+
+	// permission
+	char * perm_s = &argv[1][1];
+	int perm = 0;
+    if (strcmp(perm_s, "W") == 0){
+        perm = PTE_W;
+	}else if(strcmp(perm_s, "U") == 0){
+        perm = PTE_U;
+	}else if(strcmp(perm_s, "PWT") == 0){
+        perm = PTE_PWT;
+    }else if(strcmp(perm_s, "PCD") == 0){
+        perm = PTE_PCD;
+    }else if(strcmp(perm_s, "A") == 0){
+        perm = PTE_A;
+    }else if(strcmp(perm_s, "D") == 0){
+        perm = PTE_D;
+    }else if(strcmp(perm_s, "G") == 0){
+        perm = PTE_G;
+    }else{
+        cprintf("Usage: <option> <addr>\n");
+        return 0;
+    }
+
+	// address
+	uintptr_t addr = hex2int(argv[2]);
+
+	pte_t * pte = pgdir_walk(kern_pgdir, (void*)addr, 0);
+	if(pte){
+		if(mode){	// add permission
+			*pte = *pte | perm;
+		}else{	// remove permission
+			*pte = *pte & (~perm);
+		}
+	}
+	return 0;
+}
+
+int
+mon_memdump(int argc, char**argv, struct Trapframe *tf){
+    uint32_t i, start, end;
+	int kind;
+    if (argc != 4) {
+        cprintf("Usage: memdump <-v|-p> <begin> <end>\n");
+        return 0;
+    }
+    if (strcmp(argv[1], "-v") == 0) {
+        kind = 0;
+    }
+    else if (strcmp(argv[1], "-p") == 0) {
+        kind = 1;
+    }
+	else {
+        cprintf("Usage: memdump <-v|-p> <begin> <end>\n");
+        return 0;
+    }
+    
+	start = hex2int(argv[2]);
+    end = hex2int(argv[3]);
+
+    cprintf("0x%x :", start);
+    int cnt = 0;
+    for (i = start; i <= end; ++i) {
+        if (cnt == 8) {
+        	cnt = 0;
+        	cprintf("\n0x%x: ", i);
+        }
+        if (kind) {
+            cprintf(" %02x", ((uint32_t)*(char *)(i + KERNBASE)) & 0xff);
+        }
+        else {
+            cprintf(" %02x", ((uint32_t)*(char *)i) & 0xff);
+        }
+        	cnt++;
+    }
+    cprintf("\n");
+    return 0;
+}
 
 
 /***** Kernel monitor command interpreter *****/
