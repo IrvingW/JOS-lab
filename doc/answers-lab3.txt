@@ -1,0 +1,38 @@
+Questions:
+1. What is the purpose of having an individual handler function for each
+exception/interrupt?
+
+因为不是所有的exception都需要在栈中push一个error code，如果用同一个处理函数则无法区分
+不同的类型的exception
+
+
+2.Did you have to do anything to make the user/softint program behave
+correctly? The grade script expects it to produce a general protection fault (trap
+13), but softint 's code says int $14 . Why should this produce interrupt
+vector 13? What happens if the kernel actually allows softint 's int $14
+instruction to invoke the kernel's page fault handler (which is interrupt vector 14)?
+
+因为该程序尝试触发１４号处理函数，但是用户态程序的CPL = 3, 而idt[14]的DPL为０，比
+CPL优先级更高，所以会导致一个保护异常. 也就是$13
+SETGATE(idt[T_PGFLT ],0,GD_KT,ENTRY_PGFLT ,3); 将IDT entry的DPL设置为３就可以啦．
+如果kernel允许int $14触发kernel page fault 处理器的话，那么内核的管理页的功能将会受到危害，
+因为任何特权级的程序都可以使用 int　$14　来触发page fault. 而且内核的安全性也会受到影响． 
+
+
+３．The break point test case will either generate a break point exception or a
+general protection fault depending on how you initialized the break point entry in
+the IDT (i.e., your call to SETGATE from trap_init ). Why? How do you need to
+set it up in order to get the breakpoint exception to work as specified above and
+what incorrect setup would cause it to trigger a general protection fault?
+
+因为想要触发一个exception handler，必须检查程序的CPL和IDT中规定的该handler的DPL,如果CPL > DPL,
+也就是特权低的时候，就会触发一个保护异常而不是触发想要触发的那一个handler.
+方法：　SETGATE(idt[T_BRKPT], 0, GD_KT, brkpt_handler, 3);
+关键之处就在于将DPL设置成３，也就是允许用户级程序使用int 3来触发一个breakpoint exception
+
+
+４．What do you think is the point of these mechanisms, particularly in light of what
+the user/softint test program does?
+
+关键点在于如果用户可以随意触发exception,将会队kernel产生危害，有些exception应该禁止用户级程序触发．
+比如从user/softint这个例子来看，页错误如果用户级程序可以触发将会使得内核难以管理页，不应该给用户这个权限．
