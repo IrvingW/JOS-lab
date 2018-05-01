@@ -10,6 +10,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/trap.h>
 #include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
@@ -30,6 +31,9 @@ static struct Command commands[] = {
 	{ "shmap", "Display the physical page mappings and corresponding permission bits that apply to the pages between input addresses.", mon_shmap },
 	{ "chmap", "Explicitly set, clear, or change the permissions of any mapping in the current address space.", mon_chmap },
 	{ "memdump", "Dump the contents of a range of memory given either a virtual or physical address range.", mon_memdump },
+	{ "c", "continue execution", mon_c },
+	{ "si", "execute single instruction", mon_si },
+	{ "x", "display the memory", mon_x },
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -315,7 +319,48 @@ mon_memdump(int argc, char**argv, struct Trapframe *tf){
     return 0;
 }
 
+int
+mon_c(int argc, char **argv, struct Trapframe *tf){
+	// if the monitor return, the program will continue
+	if(tf == NULL){
+		cprintf("not in debug mode\n");
+		return 0;
+	}
+	tf->tf_eflags &= ~FL_TF;	// clear tf bit in EFLAG
+	return -1;	// quit monitor loop
+}
 
+int
+mon_si(int argc, char **argv, struct Trapframe *tf){
+	if(tf == NULL){
+		cprintf("not in debug mode\n");
+		return 0;
+	}
+	tf->tf_eflags |= FL_TF;	// set tf bit in EFLAG
+	cprintf("tf_eip=%08x\n", tf->tf_eip);
+	struct Eipdebuginfo e;
+	if(debuginfo_eip(tf->tf_eip, &e) == 0){	// success find debug info
+		char func_name[e.eip_fn_namelen + 1];	// str end with '\0'
+		int i;
+		for(i = 0; i < e.eip_fn_namelen; i++){
+			func_name[i] = e.eip_fn_name[i];
+		}
+		func_name[e.eip_fn_namelen] = '\0';
+		cprintf("%s:%d: %s+%d\n", e.eip_file, e.eip_line, func_name, tf->tf_eip - e.eip_fn_addr);
+	}
+	return -1;
+}
+
+int
+mon_x(int argc, char **argv, struct Trapframe *tf){
+	if(argc != 2){
+		cprintf("Usage: x <address>\n");
+		return 0;
+	}
+	uint32_t address = hex2int(argv[1]);
+	cprintf("%d\n", (*(uint32_t *)address));
+	return 0;
+}
 /***** Kernel monitor command interpreter *****/
 
 #define WHITESPACE "\t\r\n "
@@ -367,6 +412,9 @@ monitor(struct Trapframe *tf)
 
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
+
+	if (tf != NULL)
+		print_trapframe(tf);
 
 	while (1) {
 		buf = readline("K> ");
