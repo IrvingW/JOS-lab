@@ -385,9 +385,6 @@ syscall_wrapper(uint32_t a5, struct Trapframe * tf)
 {
   lock_kernel();
   curenv->env_tf = *tf;
-  //curenv->env_tf.tf_regs = tf->tf_regs;
-  //curenv->env_tf.tf_eip  = tf->tf_eip;
-  //curenv->env_tf.tf_esp  = tf->tf_esp;
 
   int32_t res = syscall(tf->tf_regs.reg_eax,
                 tf->tf_regs.reg_edx,

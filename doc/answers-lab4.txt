@@ -1,0 +1,83 @@
+Questions:
+1. Compare kern/mpentry.S side by side with boot/boot.S . Bearing in mind that
+kern/mpentry.S is compiled and linked to run above KERNBASE just like
+everything else in the kernel, what is the purpose of macro MPBOOTPHYS ? Why is it
+necessary in kern/mpentry.S but not in boot/boot.S ? In other words, what
+Application Processor Bootstrap could go wrong if it were omitted in kern/mpentry.S ?
+Hint: recall the differences between the link address and the load address that we
+have discussed in Lab 1.
+ 
+答案在注释中已经给出，他需要用MPBOOTPHYS来计算他的符号的绝对地址，而不是使用linker来计算并填充，因为这个时候
+BSP上面页机制已经被打开了，而在AP上还没有开启，所以对他来说还是只能用物理地址．
+
+
+2. It seems that using the big kernel lock guarantees that only one CPU can run the
+kernel code at a time. Why do we still need separate kernel stacks for each CPU?
+Describe a scenario in which using a shared kernel stack will go wrong, even with the
+protection of the big kernel lock．
+
+系统调用(sysenter实现的)和trap在获取锁之前，就已经进入内核栈，并且需要在内核栈上面pushtrapframe上去．
+所以比如两个CPU如果都触发了trap，那么虽然他们不会都执行完成处理代码，但是内核栈上面的trapframe却会被覆盖掉．所以需要每个CPU一个内核栈．
+
+3. In your implementation of env_run() you should have called lcr3() . Before and
+after the call to lcr3() , your code makes references (at least it should) to the
+variable e , the argument to env_run . Upon loading the %cr3 register, the
+addressing context used by the MMU is instantly changed. But a virtual address
+(namely e ) has meaning relative to a given address context--the address context
+specifies the physical address to which the virtual address maps. Why can the pointer
+e be dereferenced both before and after the addressing switch?
+
+在上一次实验lab3的实现中，env->env_pgdir的内核那部分的映射都是相同的，而且是＂静态的＂设定好的．所以在切换前后
+映射并没有改变，原来的虚拟地址仍然能够成功寻址到相同的物理页面．具体可以参见env.c中的env_setup_vm函数．
+
+
+
+Challenge:
+我选择的是实现优先级调度
+效果如下所示，可以看到高优先级的进程被优先调度起来了．
+我在inc/env.h文件定义了一个宏　USE_PRIORITY_SCHEDUALER, 助教如果想要测试这个challenge的话可以进入把注释取消掉，然后运行
+make qemu　就可以测试了．
+这个宏如果被注释掉的话make qemu将会运行primes那个程序
+定义了的话会运行我写的４个测试文件，每个程序开启一个不同优先级的进程运行并输出一些信息．
+
+详细设计过程请见文档最后面部分
+
+效果：
+SMP: CPU 0 found 1 CPU(s)
+enabled interrupts: 1 2
+[00000000] new env 00001000
+[00000000] new env 00001001
+[00000000] new env 00001002
+[00000000] new env 00001003
+[00000000] new env 00001004
+[00000000] new env 00001005
+[00000000] new env 00001006
+[00000000] new env 00001007
+[00000000] new env 00001008
+[00000000] new env 00001009
+[00000000] new env 0000100a
+[00000000] new env 0000100b
+[00001009] Super Priority Env is Running
+[00001009] Super Priority Env is Running
+[00001009] Super Priority Env is Running
+[00001009] exiting gracefully
+[00001009] free env 00001009
+[00001008] High Priority Env is Running
+[00001008] High Priority Env is Running
+[00001008] High Priority Env is Running
+[00001008] exiting gracefully
+[00001008] free env 00001008
+[0000100a] Low Priority Env is Running
+[0000100a] Low Priority Env is Running
+[0000100a] Low Priority Env is Running
+[0000100a] exiting gracefully
+[0000100a] free env 0000100a
+[0000100b] Normal Priority Env is Running
+[0000100b] Normal Priority Env is Running
+[0000100b] Normal Priority Env is Running
+[0000100b] exiting gracefully
+[0000100b] free env 0000100b
+No more runnable environments!
+Welcome to the JOS kernel monitor!
+Type 'help' for a list of commands.
+K> 

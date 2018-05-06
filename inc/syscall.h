@@ -16,9 +16,7 @@ enum {
 	SYS_page_map,
 	SYS_page_unmap,
 	SYS_exofork,
-	#ifdef USE_PRIORITY_SCHEDUALER
-		SYS_env_set_status,
-	#endif
+	SYS_env_set_status,
 	SYS_env_set_priority,
 	SYS_env_set_pgfault_upcall,
 	SYS_yield,

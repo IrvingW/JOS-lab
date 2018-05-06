@@ -45,13 +45,13 @@ enum EnvType {
 };
 
 // uncommit this if you want to test fixed-priority scheduler
-#define USE_PRIORITY_SCHEDUALER
-#ifdef USE_PRIORITY_SCHEDUALER
-	#define SUPER_PRIORITY 0
-	#define HIGH_PRIORITY 1
-	#define MIDDLE_PRIORITY 2
-	#define LOW_PRIORITY 3
-#endif
+//#define USE_PRIORITY_SCHEDUALER
+
+#define SUPER_PRIORITY 0
+#define HIGH_PRIORITY 1
+#define NORMAL_PRIORITY 2
+#define LOW_PRIORITY 3
+
 struct Env {
 	struct Trapframe env_tf;	// Saved registers
 	struct Env *env_link;		// Next free Env

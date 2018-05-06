@@ -1,4 +1,4 @@
-#**JOS LAB 1: Booting a PC** 
+#**JOS LAB 2** 
 姓名：王涛
 学号：515030910083
 

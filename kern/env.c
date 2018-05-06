@@ -278,7 +278,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// set initial priority
 	#ifdef USE_PRIORITY_SCHEDUALER
-		e->evn_priority = MIDDLE_PRIORITY;
+		e->evn_priority = NORMAL_PRIORITY;
 	#endif
 
 	// commit the allocation

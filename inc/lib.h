@@ -49,9 +49,9 @@ int     sys_map_kernel_page(void* kpage, void* va);
 void	sys_yield(void);
 static envid_t sys_exofork(void);
 int	sys_env_set_status(envid_t env, int status);
-#ifdef USE_PRIORITY_SCHEDUALER
-	int sys_env_set_priority(envid_t env, uint32_t priority);
-#endif
+
+int sys_env_set_priority(envid_t env, uint32_t priority);
+
 int	sys_env_set_pgfault_upcall(envid_t env, void *upcall);
 int	sys_page_alloc(envid_t env, void *pg, int perm);
 int	sys_page_map(envid_t src_env, void *src_pg,
