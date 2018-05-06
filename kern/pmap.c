@@ -252,7 +252,7 @@ mem_init(void)
 	lcr4(cr4);
 
 	perm = PTE_W;
-	boot_map_region_large(kern_pgdir, KERNBASE,
+	boot_map_region(kern_pgdir, KERNBASE,
 		(0xffffffff - KERNBASE + 1), 0, perm);
 
 	// Initialize the SMP-related parts of the memory map
@@ -311,6 +311,21 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
+	int perm = PTE_W;
+	int i = 0;
+	for(i = 0; i < NCPU; i++){
+		uintptr_t kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+		boot_map_region(kern_pgdir, kstacktop_i - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), perm);
+		// set guard page
+		uintptr_t gp = kstacktop_i - KSTKSIZE - KSTKGAP;
+		while(gp < kstacktop_i - KSTKSIZE){
+			pte_t * pte = pgdir_walk(kern_pgdir, (void *)gp, 0);
+			if(pte != NULL){
+				*pte = 0;
+			}
+			gp += PGSIZE;
+		}
+	}
 
 }
 
@@ -354,7 +369,7 @@ page_init(void)
   	// use boot_alloc(0) to get the begining of the free space
   	size_t cur_free = PADDR(boot_alloc(0)) / PGSIZE;
 	for (i = 0; i < npages; i++) {
-        if ((i > 0 && i < npages_basemem) || i >= cur_free) {
+        if ((i > 0 && i < npages_basemem && i != PGNUM(MPENTRY_PADDR)) || i >= cur_free) {
             pages[i].pp_ref = 0;
             pages[i].pp_link = page_free_list;
             page_free_list = &pages[i];

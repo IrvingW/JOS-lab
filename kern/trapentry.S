@@ -71,7 +71,7 @@ TRAPHANDLER_NOEC(align_handler, 	T_ALIGN)
 TRAPHANDLER_NOEC(mchk_handler, 	T_MCHK)
 TRAPHANDLER_NOEC(simderr_handler, 	T_SIMDERR)
 
-
+TRAPHANDLER_NOEC( ENTRY_SYSCALL , T_SYSCALL)  /* 48 system call*/
 
 .globl sysenter_handler;
 .type sysenter_handler, @function;
@@ -80,13 +80,27 @@ sysenter_handler:
 /*
  * Lab 3: Your code here for system call handling
  */
-	pushl %edi
-	pushl %ebx
-	pushl %ecx
-	pushl %edx
-	pushl %eax
-	call syscall
-	movl %ebp, %ecx	/*when sysexit is called, eip is set to edx, esp is set to ecx*/
+	pushl $GD_UD|3
+	pushl %ebp
+	pushfl
+	pushl $GD_UT|3
+	pushl %esi
+	pushl $0
+	pushl $0
+	pushl %ds
+	pushl %es
+	pushal
+	movw $GD_KD, %ax
+	movw %ax, %ds
+	movw %ax, %es
+	pushl %esp
+	pushl 0x4(%ebp)
+	call syscall_wrapper
+	popl %esp
+	popal
+	popl %es
+	popl %ds
+	movl %ebp, %ecx
 	movl %esi, %edx
 	sysexit
 
