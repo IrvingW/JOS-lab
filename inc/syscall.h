@@ -1,6 +1,8 @@
 #ifndef JOS_INC_SYSCALL_H
 #define JOS_INC_SYSCALL_H
 
+#include <inc/env.h>
+
 /* system call numbers */
 enum {
 	SYS_cputs = 0,
@@ -14,7 +16,10 @@ enum {
 	SYS_page_map,
 	SYS_page_unmap,
 	SYS_exofork,
-	SYS_env_set_status,
+	#ifdef USE_PRIORITY_SCHEDUALER
+		SYS_env_set_status,
+	#endif
+	SYS_env_set_priority,
 	SYS_env_set_pgfault_upcall,
 	SYS_yield,
 	SYS_ipc_try_send,

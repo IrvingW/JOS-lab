@@ -109,6 +109,15 @@ sys_env_set_status(envid_t envid, int status)
 	return syscall(SYS_env_set_status, 1, envid, status, 0, 0, 0);
 }
 
+// lab4 challenge
+#ifdef USE_PRIORITY_SCHEDUALER
+int 
+sys_env_set_priority(envid_t envid, uint32_t priority)
+{
+	return syscall(SYS_env_set_priority, 1, envid, priority, 0, 0, 0);
+}
+#endif
+
 int
 sys_env_set_pgfault_upcall(envid_t envid, void *upcall)
 {

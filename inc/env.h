@@ -44,6 +44,14 @@ enum EnvType {
 	ENV_TYPE_IDLE,
 };
 
+// uncommit this if you want to test fixed-priority scheduler
+#define USE_PRIORITY_SCHEDUALER
+#ifdef USE_PRIORITY_SCHEDUALER
+	#define SUPER_PRIORITY 0
+	#define HIGH_PRIORITY 1
+	#define MIDDLE_PRIORITY 2
+	#define LOW_PRIORITY 3
+#endif
 struct Env {
 	struct Trapframe env_tf;	// Saved registers
 	struct Env *env_link;		// Next free Env
@@ -69,7 +77,10 @@ struct Env {
 	envid_t env_ipc_from;		// envid of the sender
 	int env_ipc_perm;		// Perm of page mapping received
 
-	// LAB3: might need code here for implementation of sbrk
+	// Lab 4 priority schedule challenge
+	#ifdef USE_PRIORITY_SCHEDUALER
+		uint32_t evn_priority;		// priority for the environment
+	#endif
 
 };
 

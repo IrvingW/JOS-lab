@@ -6,6 +6,7 @@
 #include <inc/string.h>
 #include <inc/assert.h>
 #include <inc/elf.h>
+#include <inc/env.h>
 
 #include <kern/env.h>
 #include <kern/pmap.h>
@@ -274,6 +275,11 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Also clear the IPC receiving flag.
 	e->env_ipc_recving = 0;
+
+	// set initial priority
+	#ifdef USE_PRIORITY_SCHEDUALER
+		e->evn_priority = MIDDLE_PRIORITY;
+	#endif
 
 	// commit the allocation
 	env_free_list = e->env_link;

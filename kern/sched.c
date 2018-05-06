@@ -1,4 +1,5 @@
 #include <inc/assert.h>
+#include <inc/env.h>
 
 #include <kern/env.h>
 #include <kern/pmap.h>
@@ -18,6 +19,9 @@ sched_yield(void)
 	// circular fashion starting just after the env this CPU was
 	// last running.  Switch to the first such environment found.
 	//
+	// In lab4 challenge, I introduce schedule by priority of environment.
+	// The scheduler will search for higher evn that is RUNNABLE first.
+	//
 	// If no envs are runnable, but the environment previously
 	// running on this CPU is still ENV_RUNNING, it's okay to
 	// choose that environment.
@@ -30,11 +34,27 @@ sched_yield(void)
 
 	// LAB 4: Your code here.
 	envid_t cur_id = (curenv != NULL)? ENVX(curenv->env_id) : 0;
-	for(i = (cur_id+1)%NENV; i != cur_id; i=(i+1)%NENV){
-		if(envs[i].env_type != ENV_TYPE_IDLE && envs[i].env_status == ENV_RUNNABLE){
-			env_run(&envs[i]);
+
+	#ifdef USE_PRIORITY_SCHEDUALER
+		uint32_t j;
+		for(j = SUPER_PRIORITY; j <= LOW_PRIORITY; j++){
+			for(i = (cur_id+1)%NENV; i != cur_id; i=(i+1)%NENV){
+				if(envs[i].env_type != ENV_TYPE_IDLE && envs[i].env_status == ENV_RUNNABLE){
+					if(envs[i].evn_priority == j){
+						env_run(&envs[i]);
+					}
+				}
+			}
 		}
-	}
+
+	#else
+		for(i = (cur_id+1)%NENV; i != cur_id; i=(i+1)%NENV){
+			if(envs[i].env_type != ENV_TYPE_IDLE && envs[i].env_status == ENV_RUNNABLE){
+				env_run(&envs[i]);
+			}
+		}
+	#endif
+
 	if(curenv && curenv->env_type != ENV_TYPE_IDLE && curenv->env_status == ENV_RUNNABLE){
 		env_run(curenv);
 	}

@@ -129,6 +129,29 @@ sys_env_set_status(envid_t envid, int status)
   return 0;
 }
 
+// Set envid's env_priority to priority
+// 
+// Returns 0 on success, < 0 on error.  Errors are:
+//	-E_BAD_ENV if environment envid doesn't currently exist,
+//		or the caller doesn't have permission to change envid.
+//	-E_INVAL if status is not a valid priority for an environment.
+#ifdef USE_PRIORITY_SCHEDUALER
+
+static int
+sys_env_set_priority(envid_t envid, uint32_t priority)
+{
+  struct Env *e;
+  int r;
+  if((r = envid2env(envid, &e, 1)) < 0)
+    return r;
+  if (priority > LOW_PRIORITY || priority < SUPER_PRIORITY)
+    return -E_INVAL;
+  e->evn_priority = priority;
+  return 0;
+}
+
+#endif
+
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
 // Env's 'env_pgfault_upcall' field.  When 'envid' causes a page fault, the
 // kernel will push a fault record onto the exception stack, then branch to
@@ -403,11 +426,14 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
       return sys_exofork();
     case SYS_env_set_status:
       return sys_env_set_status((envid_t)a1, (int)a2);
+    #ifdef USE_PRIORITY_SCHEDUALER
+      case SYS_env_set_priority:
+        return sys_env_set_priority((envid_t)a1, (uint32_t)a2);
+    #endif
     case SYS_page_alloc:
       return sys_page_alloc((envid_t)a1, (void *)a2, (int)a3);
     case SYS_page_map:
       return sys_page_map((envid_t)a1, (void *)a2, (envid_t)a3, (void *)a4, (int)a5);
-      break;
     case SYS_page_unmap:
       return sys_page_unmap((envid_t)a1, (void *)a2);
     case SYS_env_set_pgfault_upcall:
@@ -417,6 +443,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
     case SYS_ipc_recv:
       return sys_ipc_recv((void *)a1);
     case NSYSCALLS:
+
     default:
       return -E_INVAL;
   }
