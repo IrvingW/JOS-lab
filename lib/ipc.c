@@ -23,8 +23,21 @@ int32_t
 ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 {
 	// LAB 4: Your code here.
-	panic("ipc_recv not implemented");
-	return 0;
+	if(pg == NULL)
+		pg = (void *)UTOP + 1;
+	int32_t r = sys_ipc_recv(pg);
+	int perm_recv = 0;
+	envid_t env_recv  = 0;
+	if(r == 0){
+		perm_recv = thisenv->env_ipc_perm;
+		env_recv  = thisenv->env_ipc_from;
+		r = thisenv->env_ipc_value;
+	}
+	if(perm_store)
+    	*perm_store = perm_recv;
+  	if(from_env_store)
+    	*from_env_store = env_recv;
+	return r;
 }
 
 // Send 'val' (and 'pg' with 'perm', if 'pg' is nonnull) to 'toenv'.
@@ -39,7 +52,15 @@ void
 ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 {
 	// LAB 4: Your code here.
-	panic("ipc_send not implemented");
+	if(pg == NULL)
+		pg = (void *) UTOP + 1;
+	int r;
+	while((r = sys_ipc_try_send(to_env, val, pg, perm)) < 0){
+		if(r != -E_IPC_NOT_RECV)
+			panic("sys_ipc_try_send: %e", r);
+		sys_yield();
+	}
+	
 }
 
 // Find the first environment of the given type.  We'll use this to
