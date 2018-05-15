@@ -96,6 +96,9 @@ i386_init(void)
 	for (i = 0; i < NCPU; i++)
 		ENV_CREATE(user_idle, ENV_TYPE_IDLE);
 
+	// Start fs.
+	//ENV_CREATE(fs_fs, ENV_TYPE_FS);
+
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
@@ -107,7 +110,9 @@ i386_init(void)
 	ENV_CREATE(user_priorityLOW, ENV_TYPE_USER);
 	ENV_CREATE(user_priorityNORMAL, ENV_TYPE_USER);
 	#else 
-	ENV_CREATE(user_primes, ENV_TYPE_USER);
+	// ENV_CREATE(user_writemotd, ENV_TYPE_USER);
+	// ENV_CREATE(user_testfile, ENV_TYPE_USER);
+	// ENV_CREATE(user_icode, ENV_TYPE_USER);
 	#endif
 #endif // TEST*
 

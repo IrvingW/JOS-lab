@@ -78,6 +78,13 @@ KERN_BINFILES +=	user/idle \
 			user/pingpongs \
 			user/primes
 
+# Binary files for LAB5
+KERN_BINFILES +=	user/testfile \
+			user/writemotd \
+			user/icode \
+			fs/fs
+
+
 # Binary files for LAB4 Challenge: priority scheduler
 KERN_BINFILES += 	user/priorityHIGH \
 			user/priorityLOW \
