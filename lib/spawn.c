@@ -292,3 +292,99 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 }
 
 
+int 
+exec(const char *prog, const char **argv){
+		unsigned char elf_buf[512];
+	struct Trapframe child_tf;
+	envid_t child;
+
+	int fd, i, r;
+	struct Elf *elf;
+	struct Proghdr *ph;
+	int perm;
+
+	if ((r = open(prog, O_RDONLY)) < 0)
+		return r;
+	fd = r;
+
+	// Read elf header
+	elf = (struct Elf*) elf_buf;
+	if (readn(fd, elf_buf, sizeof(elf_buf)) != sizeof(elf_buf)
+	    || elf->e_magic != ELF_MAGIC) {
+		close(fd);
+		cprintf("elf magic %08x want %08x\n", elf->e_magic, ELF_MAGIC);
+		return -E_NOT_EXEC;
+	}
+
+	// Create new child environment
+	if ((r = sys_exofork()) < 0)
+		return r;
+	child = r;
+
+	// Set up trap frame, including initial stack.
+	child_tf = envs[ENVX(child)].env_tf;
+	child_tf.tf_eip = elf->e_entry;
+
+	if ((r = init_stack(child, argv, &child_tf.tf_esp)) < 0)
+		return r;
+
+	// Set up program segments as defined in ELF header.
+	ph = (struct Proghdr*) (elf_buf + elf->e_phoff);
+	for (i = 0; i < elf->e_phnum; i++, ph++) {
+		if (ph->p_type != ELF_PROG_LOAD)
+			continue;
+		perm = PTE_P | PTE_U;
+		if (ph->p_flags & ELF_PROG_FLAG_WRITE)
+			perm |= PTE_W;
+		if ((r = map_segment(child, ph->p_va, ph->p_memsz,
+				     fd, ph->p_filesz, ph->p_offset, perm)) < 0)
+			goto error;
+	}
+	close(fd);
+	fd = -1;
+
+	if ((r = sys_env_set_trapframe(child, &child_tf)) < 0)
+		panic("sys_env_set_trapframe: %e", r);
+
+	if ((r = sys_env_exchange(child)) < 0)
+		panic("sys_env_exchange: %e", r);
+
+	return r;
+
+error:
+	sys_env_destroy(child);
+	close(fd);
+	return r;
+}
+
+
+// Exec, taking command-line arguments array directly on the stack.
+// NOTE: Must have a sentinal of NULL at the end of the args
+// (none of the args may be NULL).
+int
+execl(const char *prog, const char *arg0, ...)
+{
+	// We calculate argc by advancing the args until we hit NULL.
+	// The contract of the function guarantees that the last
+	// argument will always be NULL, and that none of the other
+	// arguments will be NULL.
+	int argc=0;
+	va_list vl;
+	va_start(vl, arg0);
+	while(va_arg(vl, void *) != NULL)
+		argc++;
+	va_end(vl);
+
+	// Now that we have the size of the args, do a second pass
+	// and store the values in a VLA, which has the format of argv
+	const char *argv[argc+2];
+	argv[0] = arg0;
+	argv[argc+1] = NULL;
+
+	va_start(vl, arg0);
+	unsigned i;
+	for(i=0;i<argc;i++)
+		argv[i+1] = va_arg(vl, const char *);
+	va_end(vl);
+	return exec(prog, argv);
+}

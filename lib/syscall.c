@@ -122,6 +122,11 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	return syscall(SYS_env_set_trapframe, 1, envid, (uint32_t) tf, 0, 0, 0);
 }
 
+int 
+sys_env_exchange(envid_t envid){
+	return syscall(SYS_env_exchange, 1, envid, 0, 0, 0, 0);
+}
+
 int
 sys_env_set_pgfault_upcall(envid_t envid, void *upcall)
 {

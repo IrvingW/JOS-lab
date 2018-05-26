@@ -25,6 +25,8 @@ enum {
 	SYS_ipc_recv,
 
 	SYS_sbrk,
+	// add for challenge of lab5
+	SYS_env_exchange,
 	NSYSCALLS
 };
 

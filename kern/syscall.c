@@ -164,7 +164,15 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	// LAB 5: Your code here.
 	// Remember to check whether the user has supplied us with a good
 	// address!
-	panic("sys_env_set_trapframe not implemented");
+	int r;
+  struct Env *e;
+  if((r = envid2env(envid, &e, 1)))
+    return r;
+  e->env_tf = *tf;
+  e->env_tf.tf_cs |= 3;
+  e->env_tf.tf_eflags |= FL_IF;
+  return 0;
+
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -395,6 +403,32 @@ sys_sbrk(uint32_t inc)
   return curenv->env_heap_bottom = (uintptr_t)ROUNDDOWN(curenv->env_heap_bottom - inc,PGSIZE);
 }
 
+static int
+sys_env_exchange(envid_t envid){
+	int r;
+	struct Env *e;
+  struct Trapframe tmp_tf;
+  pte_t * tmp_pgdir;
+
+	if ((r = envid2env(envid, &e, 1)) < 0)
+		return r;
+
+  tmp_tf = e->env_tf;
+  e->env_tf = curenv->env_tf;
+  curenv->env_tf = tmp_tf;
+
+  tmp_pgdir = e->env_pgdir;
+  e->env_pgdir = curenv->env_pgdir;
+  curenv->env_pgdir = tmp_pgdir;
+
+	env_destroy(e);
+  lcr3(PADDR(curenv->env_pgdir));
+  unlock_kernel();
+  env_pop_tf(&curenv->env_tf);
+	return 0; // never return 
+}
+
+
 int32_t
 syscall_wrapper(uint32_t a5, struct Trapframe * tf)
 {
@@ -454,6 +488,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
       return sys_ipc_try_send((envid_t)a1, (uint32_t)a2, (void *)a3, (unsigned)a4);
     case SYS_ipc_recv:
       return sys_ipc_recv((void *)a1);
+    case SYS_env_set_trapframe:
+      return sys_env_set_trapframe((envid_t)a1, (struct Trapframe*)a2);
+    case SYS_env_exchange:
+      return sys_env_exchange((envid_t)a1);
     case NSYSCALLS:
 
     default:

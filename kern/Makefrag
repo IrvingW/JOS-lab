@@ -84,6 +84,9 @@ KERN_BINFILES +=	user/testfile \
 			user/icode \
 			fs/fs
 
+# Binary files for LAB5 Challenge: UNIX exec
+KERN_BINFILES +=	user/icodeExec
+
 
 # Binary files for LAB4 Challenge: priority scheduler
 KERN_BINFILES += 	user/priorityHIGH \

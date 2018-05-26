@@ -53,7 +53,7 @@ void	sys_yield(void);
 static envid_t sys_exofork(void);
 int	sys_env_set_status(envid_t env, int status);
 int	sys_env_set_trapframe(envid_t env, struct Trapframe *tf);
-
+int sys_env_exchange(envid_t env);
 int sys_env_set_priority(envid_t env, uint32_t priority);
 
 int	sys_env_set_pgfault_upcall(envid_t env, void *upcall);
@@ -115,7 +115,8 @@ int	pageref(void *addr);
 // spawn.c
 envid_t	spawn(const char *program, const char **argv);
 envid_t	spawnl(const char *program, const char *arg0, ...);
-
+envid_t	exec(const char *program, const char **argv);
+envid_t	execl(const char *program, const char *arg0, ...);
 
 
 /* File open modes */

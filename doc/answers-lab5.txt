@@ -1,0 +1,53 @@
+Questions:
+1. How long approximately did it take you to do this lab?
+
+前后加起来一共写了3天吧，第一天是周末，因为没有买到复联３的票所以就在寝室写了一天lab．主要花了大部分时间熟悉了
+所有的fs文件夹里面的文件以及几个新的文件里面的代码，然后一边看文档一边大致写一些JOS文件系统的设计要点准备回头
+放到文档里面．周一晚上去看电影了，复联３看得心累回来没有碰lab.然后周二只有一节课写了一天完成了所有Exercise外加过程的文档．
+看了一遍所有的Challenge感觉都不是很省事额，最后又花了一天才搞定了那个Challenge.
+
+
+Challenge:
+我选择的是实现UNIX上的exec函数．
+我的思路是前半部分照抄spawn，也就是fork出一个新的子进程然后将ELF文件加载到这个进程的地址空间中然后设置第一个栈．
+之后调用一个系统调用进入内核态，将当前进程的页表和trapframe全部替换成子进程的．这样就可以一次性改掉当前进程内存空间中的
+内容了．
+实现的系统调用如下
+static int
+sys_env_exchange(envid_t envid){
+	int r;
+	struct Env *e;
+  struct Trapframe tmp_tf;
+  pte_t * tmp_pgdir;
+
+	if ((r = envid2env(envid, &e, 1)) < 0)
+		return r;
+
+  tmp_tf = e->env_tf;
+  e->env_tf = curenv->env_tf;
+  curenv->env_tf = tmp_tf;
+
+  tmp_pgdir = e->env_pgdir;
+  e->env_pgdir = curenv->env_pgdir;
+  curenv->env_pgdir = tmp_pgdir;
+
+	env_destroy(e);
+  lcr3(PADDR(curenv->env_pgdir));
+  unlock_kernel();
+  env_pop_tf(&curenv->env_tf);
+	return 0; // never return 
+}
+最后实现的效果如下，可以看到在原来的进程中加载了inic程序，然后inode.c最后的existing并没有打印，说明原来的程序流直接改变了
+
+icode: close /motd
+icode: spawn /init
+init: running
+init: data seems okay
+init: bss seems okay
+init: args: 'init' 'initarg1' 'initarg2'
+init: exiting
+[00001009] exiting gracefully
+No more runnable environments!
+
+助教如果想看运行效果的话我写了一个测试用例user/icodeExec.c
+可以运行　make run-icodeExec　查看效果．
